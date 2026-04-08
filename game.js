@@ -1,156 +1,167 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreDisplay = document.getElementById('score');
-const gameOverScreen = document.getElementById('gameOver');
+const gameOverScreen = document.getElementById('gameOverScreen');
 const finalScoreDisplay = document.getElementById('finalScore');
+const restartBtn = document.getElementById('restartBtn');
 
 const GRID_SIZE = 20;
-const TILE_SIZE = canvas.width / GRID_SIZE;
+const COLS = canvas.width / GRID_SIZE;
+const ROWS = canvas.height / GRID_SIZE;
 
-const WALLS = [
-  { x: 5, y: 5, w: 10, h: 10 },
-  { x: 1, y: 1, w: 3, h: 3 },
-  { x: 16, y: 1, w: 3, h: 3 },
-  { x: 1, y: 16, w: 3, h: 3 },
-  { x: 16, y: 16, w: 3, h: 3 },
-];
-
-let player = { x: 1, y: 1, nextX: 1, nextY: 1 };
-let pellets = [];
+let gameRunning = true;
 let score = 0;
-let gameOver = false;
 
-function initPellets() {
-  pellets = [];
-  for (let i = 0; i < GRID_SIZE; i++) {
-    for (let j = 0; j < GRID_SIZE; j++) {
-      if (!isWall(i, j) && !(i === player.x && j === player.y)) {
-        if (Math.random() > 0.15) {
-          pellets.push({ x: i, y: j });
+let pacman = {
+    x: 5,
+    y: 5,
+    vx: 0,
+    vy: 0
+};
+
+let ghost = {
+    x: Math.floor(COLS / 2),
+    y: Math.floor(ROWS / 2),
+    vx: 1,
+    vy: 0
+};
+
+let pellets = [];
+let powerPellets = [];
+
+function initGame() {
+    gameRunning = true;
+    score = 0;
+    pacman = { x: 5, y: 5, vx: 0, vy: 0 };
+    ghost = { x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2), vx: 1, vy: 0 };
+    pellets = [];
+    powerPellets = [];
+    gameOverScreen.classList.remove('show');
+    scoreDisplay.textContent = 'Score: 0';
+    
+    for (let i = 0; i < COLS; i++) {
+        for (let j = 0; j < ROWS; j++) {
+            if ((i !== pacman.x || j !== pacman.y) && (i !== ghost.x || j !== ghost.y)) {
+                if (Math.random() < 0.1) {
+                    pellets.push({ x: i, y: j });
+                }
+            }
         }
-      }
     }
-  }
 }
 
-function isWall(x, y) {
-  if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) {
-    return true;
-  }
-  for (let wall of WALLS) {
-    if (x >= wall.x && x < wall.x + wall.w && y >= wall.y && y < wall.y + wall.h) {
-      return true;
+function updatePacman() {
+    pacman.x += pacman.vx;
+    pacman.y += pacman.vy;
+    
+    pacman.x = (pacman.x + COLS) % COLS;
+    pacman.y = (pacman.y + ROWS) % ROWS;
+}
+
+function updateGhost() {
+    if (Math.random() < 0.1) {
+        const directions = [
+            { vx: 1, vy: 0 },
+            { vx: -1, vy: 0 },
+            { vx: 0, vy: 1 },
+            { vx: 0, vy: -1 }
+        ];
+        const dir = directions[Math.floor(Math.random() * directions.length)];
+        ghost.vx = dir.vx;
+        ghost.vy = dir.vy;
     }
-  }
-  return false;
+    
+    ghost.x += ghost.vx;
+    ghost.y += ghost.vy;
+    
+    ghost.x = (ghost.x + COLS) % COLS;
+    ghost.y = (ghost.y + ROWS) % ROWS;
 }
 
-function handleInput(e) {
-  switch (e.key) {
-    case 'ArrowUp':
-      player.nextY = player.y - 1;
-      e.preventDefault();
-      break;
-    case 'ArrowDown':
-      player.nextY = player.y + 1;
-      e.preventDefault();
-      break;
-    case 'ArrowLeft':
-      player.nextX = player.x - 1;
-      e.preventDefault();
-      break;
-    case 'ArrowRight':
-      player.nextX = player.x + 1;
-      e.preventDefault();
-      break;
-  }
-}
-
-function updatePlayer() {
-  if (!isWall(player.nextX, player.nextY)) {
-    player.x = player.nextX;
-    player.y = player.nextY;
-  }
-}
-
-function collectPellets() {
-  for (let i = pellets.length - 1; i >= 0; i--) {
-    if (pellets[i].x === player.x && pellets[i].y === player.y) {
-      pellets.splice(i, 1);
-      score += 10;
-      scoreDisplay.textContent = 'Score: ' + score;
+function checkCollisions() {
+    if (pacman.x === ghost.x && pacman.y === ghost.y) {
+        endGame();
+        return;
     }
-  }
+    
+    pellets = pellets.filter(pellet => {
+        if (pacman.x === pellet.x && pacman.y === pellet.y) {
+            score += 10;
+            return false;
+        }
+        return true;
+    });
 }
 
-function checkGameOver() {
-  if (pellets.length === 0 && !gameOver) {
-    gameOver = true;
-    gameOverScreen.style.display = 'block';
-    finalScoreDisplay.textContent = score;
-  }
-}
-
-function drawPlayer() {
-  ctx.fillStyle = '#ffff00';
-  ctx.beginPath();
-  ctx.arc(
-    player.x * TILE_SIZE + TILE_SIZE / 2,
-    player.y * TILE_SIZE + TILE_SIZE / 2,
-    TILE_SIZE / 2 - 2,
-    0,
-    Math.PI * 2
-  );
-  ctx.fill();
-}
-
-function drawPellets() {
-  ctx.fillStyle = '#ffb8b8';
-  for (let pellet of pellets) {
-    ctx.fillRect(
-      pellet.x * TILE_SIZE + TILE_SIZE / 2 - 2,
-      pellet.y * TILE_SIZE + TILE_SIZE / 2 - 2,
-      4,
-      4
-    );
-  }
-}
-
-function drawWalls() {
-  ctx.fillStyle = '#0033ff';
-  for (let wall of WALLS) {
-    ctx.fillRect(
-      wall.x * TILE_SIZE,
-      wall.y * TILE_SIZE,
-      wall.w * TILE_SIZE,
-      wall.h * TILE_SIZE
-    );
-  }
+function endGame() {
+    gameRunning = false;
+    gameOverScreen.classList.add('show');
+    finalScoreDisplay.textContent = `Final Score: ${score}`;
 }
 
 function draw() {
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  drawWalls();
-  drawPellets();
-  drawPlayer();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#ffff00';
+    ctx.fillRect(pacman.x * GRID_SIZE + 2, pacman.y * GRID_SIZE + 2, GRID_SIZE - 4, GRID_SIZE - 4);
+    
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(ghost.x * GRID_SIZE + 2, ghost.y * GRID_SIZE + 2, GRID_SIZE - 4, GRID_SIZE - 4);
+    
+    ctx.fillStyle = '#ffb8db';
+    pellets.forEach(pellet => {
+        ctx.fillRect(pellet.x * GRID_SIZE + 8, pellet.y * GRID_SIZE + 8, 4, 4);
+    });
+    
+    scoreDisplay.textContent = `Score: ${score}`;
 }
 
 function update() {
-  if (!gameOver) {
-    updatePlayer();
-    collectPellets();
-    checkGameOver();
-  }
+    if (!gameRunning) return;
+    
+    updatePacman();
+    updateGhost();
+    checkCollisions();
 }
 
 function gameLoop() {
-  update();
-  draw();
-  requestAnimationFrame(gameLoop);
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
 }
 
-initPellets();
-window.addEventListener('keydown', handleInput);
+document.addEventListener('keydown', (e) => {
+    if (!gameRunning) return;
+    
+    switch(e.key) {
+        case 'ArrowUp':
+            pacman.vx = 0;
+            pacman.vy = -1;
+            e.preventDefault();
+            break;
+        case 'ArrowDown':
+            pacman.vx = 0;
+            pacman.vy = 1;
+            e.preventDefault();
+            break;
+        case 'ArrowLeft':
+            pacman.vx = -1;
+            pacman.vy = 0;
+            e.preventDefault();
+            break;
+        case 'ArrowRight':
+            pacman.vx = 1;
+            pacman.vy = 0;
+            e.preventDefault();
+            break;
+    }
+});
+
+restartBtn.addEventListener('click', () => {
+    initGame();
+    gameLoop();
+});
+
+initGame();
 gameLoop();

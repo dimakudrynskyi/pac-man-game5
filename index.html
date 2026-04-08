@@ -6,37 +6,60 @@
   <title>Pac-Man Game</title>
   <style>
     body {
-      margin: 0;
-      padding: 20px;
       display: flex;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
+      margin: 0;
       background-color: #000;
       font-family: Arial, sans-serif;
     }
     #gameContainer {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
+      position: relative;
     }
     canvas {
-      border: 3px solid #00ff00;
-      background-color: #000;
+      border: 2px solid #fff;
       display: block;
+      background-color: #000;
     }
-    #scoreBoard {
-      color: #00ff00;
+    #score {
+      color: #fff;
       font-size: 20px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.9);
+      color: #fff;
+      padding: 40px;
+      text-align: center;
+      border-radius: 10px;
+      display: none;
+      z-index: 100;
+    }
+    #gameOver h1 {
+      font-size: 40px;
+      margin: 0 0 20px 0;
+    }
+    #gameOver p {
+      font-size: 20px;
+      margin: 10px 0;
     }
   </style>
 </head>
 <body>
   <div id="gameContainer">
-    <h1 style="color: #00ff00;">PAC-MAN</h1>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <div id="scoreBoard">Score: <span id="score">0</span></div>
+    <div id="score">Score: 0</div>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <div id="gameOver">
+      <h1>Game Over!</h1>
+      <p>Final Score: <span id="finalScore">0</span></p>
+      <p>Refresh to play again</p>
+    </div>
   </div>
   <script src="game.js"></script>
 </body>

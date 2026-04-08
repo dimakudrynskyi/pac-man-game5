@@ -1,145 +1,156 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreDisplay = document.getElementById('score');
+const gameOverScreen = document.getElementById('gameOver');
+const finalScoreDisplay = document.getElementById('finalScore');
 
-const GRID_WIDTH = 20;
-const GRID_HEIGHT = 15;
-const CELL_SIZE = canvas.width / GRID_WIDTH;
+const GRID_SIZE = 20;
+const TILE_SIZE = canvas.width / GRID_SIZE;
 
-const gameState = {
-  player: {
-    x: 10,
-    y: 7,
-    size: CELL_SIZE * 0.8
-  },
-  ghosts: [
-    { x: 5, y: 5, color: '#ff0000' },
-    { x: 15, y: 5, color: '#ff00ff' },
-    { x: 5, y: 10, color: '#00ffff' },
-    { x: 15, y: 10, color: '#ffb897' }
-  ],
-  pellets: [],
-  score: 0,
-  gameOver: false,
-  won: false,
-  frameCount: 0
-};
+const WALLS = [
+  { x: 5, y: 5, w: 10, h: 10 },
+  { x: 1, y: 1, w: 3, h: 3 },
+  { x: 16, y: 1, w: 3, h: 3 },
+  { x: 1, y: 16, w: 3, h: 3 },
+  { x: 16, y: 16, w: 3, h: 3 },
+];
 
-function initializePellets() {
-  gameState.pellets = [];
-  for (let x = 0; x < GRID_WIDTH; x++) {
-    for (let y = 0; y < GRID_HEIGHT; y++) {
-      if (!isGhostStart(x, y) && !(x === gameState.player.x && y === gameState.player.y)) {
-        gameState.pellets.push({ x, y, collected: false });
+let player = { x: 1, y: 1, nextX: 1, nextY: 1 };
+let pellets = [];
+let score = 0;
+let gameOver = false;
+
+function initPellets() {
+  pellets = [];
+  for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE; j++) {
+      if (!isWall(i, j) && !(i === player.x && j === player.y)) {
+        if (Math.random() > 0.15) {
+          pellets.push({ x: i, y: j });
+        }
       }
     }
   }
 }
 
-function isGhostStart(x, y) {
-  return gameState.ghosts.some(g => g.x === x && g.y === y);
+function isWall(x, y) {
+  if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) {
+    return true;
+  }
+  for (let wall of WALLS) {
+    if (x >= wall.x && x < wall.x + wall.w && y >= wall.y && y < wall.y + wall.h) {
+      return true;
+    }
+  }
+  return false;
 }
 
-function clearCanvas() {
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+function handleInput(e) {
+  switch (e.key) {
+    case 'ArrowUp':
+      player.nextY = player.y - 1;
+      e.preventDefault();
+      break;
+    case 'ArrowDown':
+      player.nextY = player.y + 1;
+      e.preventDefault();
+      break;
+    case 'ArrowLeft':
+      player.nextX = player.x - 1;
+      e.preventDefault();
+      break;
+    case 'ArrowRight':
+      player.nextX = player.x + 1;
+      e.preventDefault();
+      break;
+  }
+}
+
+function updatePlayer() {
+  if (!isWall(player.nextX, player.nextY)) {
+    player.x = player.nextX;
+    player.y = player.nextY;
+  }
+}
+
+function collectPellets() {
+  for (let i = pellets.length - 1; i >= 0; i--) {
+    if (pellets[i].x === player.x && pellets[i].y === player.y) {
+      pellets.splice(i, 1);
+      score += 10;
+      scoreDisplay.textContent = 'Score: ' + score;
+    }
+  }
+}
+
+function checkGameOver() {
+  if (pellets.length === 0 && !gameOver) {
+    gameOver = true;
+    gameOverScreen.style.display = 'block';
+    finalScoreDisplay.textContent = score;
+  }
 }
 
 function drawPlayer() {
-  const centerX = gameState.player.x * CELL_SIZE + CELL_SIZE / 2;
-  const centerY = gameState.player.y * CELL_SIZE + CELL_SIZE / 2;
-  const radius = gameState.player.size / 2;
-
   ctx.fillStyle = '#ffff00';
   ctx.beginPath();
-  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.arc(
+    player.x * TILE_SIZE + TILE_SIZE / 2,
+    player.y * TILE_SIZE + TILE_SIZE / 2,
+    TILE_SIZE / 2 - 2,
+    0,
+    Math.PI * 2
+  );
   ctx.fill();
 }
 
-function drawGhosts() {
-  gameState.ghosts.forEach(ghost => {
-    const x = ghost.x * CELL_SIZE;
-    const y = ghost.y * CELL_SIZE;
-    const size = CELL_SIZE * 0.9;
-
-    ctx.fillStyle = ghost.color;
-    ctx.fillRect(x + (CELL_SIZE - size) / 2, y + (CELL_SIZE - size) / 2, size, size);
-  });
-}
-
 function drawPellets() {
-  gameState.pellets.forEach(pellet => {
-    if (!pellet.collected) {
-      const centerX = pellet.x * CELL_SIZE + CELL_SIZE / 2;
-      const centerY = pellet.y * CELL_SIZE + CELL_SIZE / 2;
-
-      ctx.fillStyle = '#ffb8db';
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  });
+  ctx.fillStyle = '#ffb8b8';
+  for (let pellet of pellets) {
+    ctx.fillRect(
+      pellet.x * TILE_SIZE + TILE_SIZE / 2 - 2,
+      pellet.y * TILE_SIZE + TILE_SIZE / 2 - 2,
+      4,
+      4
+    );
+  }
 }
 
-function drawGrid() {
-  ctx.strokeStyle = '#1a1a2e';
-  ctx.lineWidth = 0.5;
-
-  for (let x = 0; x <= GRID_WIDTH; x++) {
-    ctx.beginPath();
-    ctx.moveTo(x * CELL_SIZE, 0);
-    ctx.lineTo(x * CELL_SIZE, canvas.height);
-    ctx.stroke();
+function drawWalls() {
+  ctx.fillStyle = '#0033ff';
+  for (let wall of WALLS) {
+    ctx.fillRect(
+      wall.x * TILE_SIZE,
+      wall.y * TILE_SIZE,
+      wall.w * TILE_SIZE,
+      wall.h * TILE_SIZE
+    );
   }
+}
 
-  for (let y = 0; y <= GRID_HEIGHT; y++) {
-    ctx.beginPath();
-    ctx.moveTo(0, y * CELL_SIZE);
-    ctx.lineTo(canvas.width, y * CELL_SIZE);
-    ctx.stroke();
-  }
+function draw() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  drawWalls();
+  drawPellets();
+  drawPlayer();
 }
 
 function update() {
-  gameState.frameCount++;
-}
-
-function render() {
-  clearCanvas();
-  drawGrid();
-  drawPellets();
-  drawPlayer();
-  drawGhosts();
-
-  if (gameState.gameOver) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#ff0000';
-    ctx.font = '40px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
-  }
-
-  if (gameState.won) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#00ff00';
-    ctx.font = '40px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('YOU WIN!', canvas.width / 2, canvas.height / 2);
+  if (!gameOver) {
+    updatePlayer();
+    collectPellets();
+    checkGameOver();
   }
 }
 
 function gameLoop() {
   update();
-  render();
-  scoreDisplay.textContent = gameState.score;
+  draw();
   requestAnimationFrame(gameLoop);
 }
 
-function initialize() {
-  initializePellets();
-  gameLoop();
-}
-
-initialize();
+initPellets();
+window.addEventListener('keydown', handleInput);
+gameLoop();
